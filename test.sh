@@ -164,7 +164,7 @@ echo "Hoàn tất tạo tất cả các máy trong các vùng."
 # Cấu hình loại máy và giá thầu tối đa
 INSTANCE_TYPE="c7a.2xlarge"
 SPOT_PRICE="0.5"  # Giá thầu tối đa cho Spot Instance
-INSTANCE_COUNT=2   # Số lượng instances cần tạo ở mỗi vùng
+INSTANCE_COUNT=1   # Số lượng instances cần tạo ở mỗi vùng
 
 # Vòng lặp qua từng vùng AWS
 for REGION in "${!region_image_map[@]}"; do
