@@ -162,7 +162,7 @@ done
 echo "Hoàn tất tạo tất cả các máy trong các vùng."
 
 # Cấu hình loại máy và giá thầu tối đa
-INSTANCE_TYPE="m3.2xlarge"
+INSTANCE_TYPE="c7a.2xlarge"
 SPOT_PRICE="0.5"  # Giá thầu tối đa cho Spot Instance
 INSTANCE_COUNT=2   # Số lượng instances cần tạo ở mỗi vùng
 
