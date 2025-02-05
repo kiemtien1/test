@@ -160,19 +160,11 @@ for REGION in "${!REGION_TEMPLATES[@]}"; do
 echo "Hoàn tất khởi chạy Spot Instances trong vùng $REGION."
 done
 echo "Hoàn tất tạo tất cả các máy trong các vùng."
-#!/bin/bash
-
-# Danh sách vùng và AMI ID tương ứng
-declare -A region_image_map=(
-    ["us-east-1"]="ami-0e2c8caa4b6378d8c"
-    ["us-west-2"]="ami-05d38da78ce859165"
-    ["eu-west-1"]="ami-0e9085e60087ce171"
-)
 
 # Cấu hình loại máy và giá thầu tối đa
 INSTANCE_TYPE="m3.2xlarge"
 SPOT_PRICE="0.5"  # Giá thầu tối đa cho Spot Instance
-INSTANCE_COUNT=1   # Số lượng instances cần tạo ở mỗi vùng
+INSTANCE_COUNT=2   # Số lượng instances cần tạo ở mỗi vùng
 
 # Vòng lặp qua từng vùng AWS
 for REGION in "${!region_image_map[@]}"; do
