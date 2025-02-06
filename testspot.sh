@@ -213,7 +213,8 @@ for REGION in "${!region_image_map[@]}"; do
             \"InstanceType\": \"$INSTANCE_TYPE\",
             \"KeyName\": \"$KEY_NAME\",
             \"SecurityGroupIds\": [\"$SG_ID\"],
-            \"SubnetId\": \"$SUBNET_ID\"
+            \"SubnetId\": \"$SUBNET_ID\",
+            \"UserData\": \"$user_data_base64\"
         }" \
         --region "$REGION" \
         --query "SpotInstanceRequests[*].SpotInstanceRequestId" \
