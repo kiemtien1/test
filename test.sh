@@ -35,7 +35,7 @@ for region in "${!region_image_map[@]}"; do
     image_id=${region_image_map[$region]}
 
     # Check if Key Pair exists
-    key_name="MrThin-$region"
+    key_name="keypairname-$region"
     if aws ec2 describe-key-pairs --key-names "$key_name" --region "$region" > /dev/null 2>&1; then
         echo "Key Pair $key_name already exists in $region"
     else
@@ -170,50 +170,17 @@ INSTANCE_COUNT=1   # Số lượng instances cần tạo ở mỗi vùng
 for REGION in "${!region_image_map[@]}"; do
     echo "🔹 Processing region: $REGION"
 
-    IMAGE_ID=${region_image_map[$REGION]}
-    KEY_NAME="SpotKey-$REGION"
-    SG_NAME="SpotSecurityGroup-$REGION"
-
-    # Kiểm tra và tạo Key Pair nếu chưa có
-    if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" --region "$REGION" > /dev/null 2>&1; then
-        aws ec2 create-key-pair --key-name "$KEY_NAME" --region "$REGION" --query "KeyMaterial" --output text > "${KEY_NAME}.pem"
-        chmod 400 "${KEY_NAME}.pem"
-        echo "✅ Key Pair $KEY_NAME created in $REGION"
-    else
-        echo "✅ Key Pair $KEY_NAME already exists in $REGION"
-    fi
-
-    # Kiểm tra và tạo Security Group nếu chưa có
-    SG_ID=$(aws ec2 describe-security-groups --group-names "$SG_NAME" --region "$REGION" --query "SecurityGroups[0].GroupId" --output text 2>/dev/null)
-
-    if [ -z "$SG_ID" ]; then
-        SG_ID=$(aws ec2 create-security-group --group-name "$SG_NAME" --description "Spot Instances Security Group" --region "$REGION" --query "GroupId" --output text)
-        aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr 0.0.0.0/0 --region "$REGION"
-        echo "✅ Security Group $SG_NAME created in $REGION"
-    else
-        echo "✅ Security Group $SG_NAME already exists in $REGION"
-    fi
-
-    # Lấy Subnet ID khả dụng
-    SUBNET_ID=$(aws ec2 describe-subnets --region "$REGION" --query "Subnets[0].SubnetId" --output text)
-    if [ -z "$SUBNET_ID" ]; then
-        echo "❌ No available Subnet found in $REGION. Skipping..."
-        continue
-    fi
-
-    echo "🟢 Using Subnet ID: $SUBNET_ID"
-
     # Gửi yêu cầu Spot Instances
     SPOT_REQUEST_ID=$(aws ec2 request-spot-instances \
         --spot-price "$SPOT_PRICE" \
         --instance-count "$INSTANCE_COUNT" \
         --type "one-time" \
         --launch-specification "{
-            \"ImageId\": \"$IMAGE_ID\",
+            \"image-id\": \"$image_id\",
             \"InstanceType\": \"$INSTANCE_TYPE\",
-            \"KeyName\": \"$KEY_NAME\",
-            \"SecurityGroupIds\": [\"$SG_ID\"],
-            \"SubnetId\": \"$SUBNET_ID\"
+            \"key-name\": \"$key_name\",
+            \"security-group-ids\": [\"$sg_id\"],
+            \"subnet_id\": \"$subnet_id\"
         }" \
         --region "$REGION" \
         --query "SpotInstanceRequests[*].SpotInstanceRequestId" \
