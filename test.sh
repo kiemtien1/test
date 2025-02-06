@@ -9,7 +9,7 @@ declare -A region_image_map=(
 )
 
 # URL containing User Data on GitHub
-user_data_url="https://raw.githubusercontent.com/kiemtien1/test/refs/heads/main/vixmr"
+user_data_url="https://raw.githubusercontent.com/kiemtien1/test/refs/heads/main/vixmr8"
 
 # Path to User Data file
 user_data_file="/tmp/user_data.sh"
@@ -161,6 +161,7 @@ echo "Hoàn tất khởi chạy Spot Instances trong vùng $REGION."
 done
 echo "Hoàn tất tạo tất cả các máy trong các vùng."
 
+fi
 # Cấu hình loại máy và giá thầu tối đa
 INSTANCE_TYPE="c7a.2xlarge"
 SPOT_PRICE="0.5"  # Giá thầu tối đa cho Spot Instance
