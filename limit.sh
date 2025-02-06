@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Cấu hình
-REGION="us-east-2"  # Thay đổi region nếu cần
+REGIONS=("us-east-1" "us-west-2")  # Thay đổi region nếu cần
 NEW_QUOTA_VALUE=64   # Giá trị hạn mức mới bạn muốn
 SERVICE_CODE="ec2"   # Mã dịch vụ EC2
 QUOTA_CODE="L-1216C47A"  # Mã hạn mức cho Spot Instances (vCPU)
