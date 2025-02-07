@@ -72,12 +72,14 @@ start_spot_instance() {
         echo "✅ Security Group $SG_NAME đã tạo ở $REGION"
     fi
 
-    # Lấy Subnet khả dụng
+    # Lấy Subnet ID khả dụng
     SUBNET_ID=$(aws ec2 describe-subnets --region "$REGION" --query "Subnets[0].SubnetId" --output text)
     if [ -z "$SUBNET_ID" ]; then
-        echo "❌ Không tìm thấy Subnet ở $REGION, bỏ qua..."
-        return
+        echo "❌ No available Subnet found in $REGION. Skipping..."
+        continue
     fi
+
+    echo "🟢 Using Subnet ID: $SUBNET_ID"
 
     # Gửi yêu cầu Spot Instances
     SPOT_REQUEST_ID=$(aws ec2 request-spot-instances \
