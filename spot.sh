@@ -1,10 +1,11 @@
+
 #!/bin/bash
 
 # List of regions and corresponding AMI IDs
 declare -A region_image_map=(
     ["us-east-1"]="ami-0e2c8caa4b6378d8c"
     ["us-west-2"]="ami-05d38da78ce859165"
-    ["ap-southeast-1"]="ami-0672fd5b9210aa093"
+    ["eu-central-1"]="ami-0a628e1e89aaedf80"
 )
 
 # URL containing User Data on GitHub
@@ -76,6 +77,33 @@ for region in "${!region_image_map[@]}"; do
         echo "SSH (22) access already configured for Security Group $sg_name in $region"
     fi
 
+# Create Launch Template
+    launch_template_name="SpotLaunchTemplate-$region"
+    launch_template_id=$(aws ec2 create-launch-template \
+        --launch-template-name $launch_template_name \
+        --version-description "Version1" \
+        --launch-template-data "{
+            \"ImageId\": \"$image_id\",
+            \"InstanceType\": \"c7a.2xlarge\",
+            \"KeyName\": \"$key_name\",
+            \"SecurityGroupIds\": [\"$sg_id\"],
+            \"UserData\": \"$user_data_base64\"
+        }" \
+        --region $region \
+        --query "LaunchTemplate.LaunchTemplateId" \
+        --output text)
+    echo "Launch Template $launch_template_name created with ID $launch_template_id in $region"
+
+    # Automatically select an available Subnet ID for Auto Scaling Group
+    subnet_id=$(aws ec2 describe-subnets --region $region --query "Subnets[0].SubnetId" --output text)
+
+    if [ -z "$subnet_id" ]; then
+        echo "No available Subnet found in $region. Skipping region."
+        continue
+    fi
+
+    echo "Using Subnet ID $subnet_id for Auto Scaling Group in $region"
+
 # Cấu hình loại máy và giá thầu tối đa
 INSTANCE_TYPE="c7a.2xlarge"
 SPOT_PRICE="0.5"  # Giá thầu tối đa cho Spot Instance
@@ -86,6 +114,28 @@ for REGION in "${!region_image_map[@]}"; do
     echo "🔹 Processing region: $REGION"
 
     IMAGE_ID=${region_image_map[$REGION]}
+    KEY_NAME="SpotKey-$REGION"
+    SG_NAME="SpotSecurityGroup-$REGION"
+
+    # Kiểm tra và tạo Key Pair nếu chưa có
+    if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" --region "$REGION" > /dev/null 2>&1; then
+        aws ec2 create-key-pair --key-name "$KEY_NAME" --region "$REGION" --query "KeyMaterial" --output text > "${KEY_NAME}.pem"
+        chmod 400 "${KEY_NAME}.pem"
+        echo "✅ Key Pair $KEY_NAME created in $REGION"
+    else
+        echo "✅ Key Pair $KEY_NAME already exists in $REGION"
+    fi
+
+    # Kiểm tra và tạo Security Group nếu chưa có
+    SG_ID=$(aws ec2 describe-security-groups --group-names "$SG_NAME" --region "$REGION" --query "SecurityGroups[0].GroupId" --output text 2>/dev/null)
+
+    if [ -z "$SG_ID" ]; then
+        SG_ID=$(aws ec2 create-security-group --group-name "$SG_NAME" --description "Spot Instances Security Group" --region "$REGION" --query "GroupId" --output text)
+        aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr 0.0.0.0/0 --region "$REGION"
+        echo "✅ Security Group $SG_NAME created in $REGION"
+    else
+        echo "✅ Security Group $SG_NAME already exists in $REGION"
+    fi
 
     # Lấy Subnet ID khả dụng
     SUBNET_ID=$(aws ec2 describe-subnets --region "$REGION" --query "Subnets[0].SubnetId" --output text)
@@ -104,8 +154,8 @@ for REGION in "${!region_image_map[@]}"; do
         --launch-specification "{
             \"ImageId\": \"$IMAGE_ID\",
             \"InstanceType\": \"$INSTANCE_TYPE\",
-            \"KeyName\": \"$key_name\",
-             \"SecurityGroupIds\": [\"$sg_id\"],
+            \"KeyName\": \"$KEY_NAME\",
+            \"SecurityGroupIds\": [\"$SG_ID\"],
             \"SubnetId\": \"$SUBNET_ID\",
             \"UserData\": \"$user_data_base64\"
         }" \
@@ -123,4 +173,3 @@ for REGION in "${!region_image_map[@]}"; do
 done
 
 echo "🚀 Hoàn tất gửi Spot Requests!"
-
