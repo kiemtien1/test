@@ -34,7 +34,7 @@ for REGION in "${!region_image_map[@]}"; do
     echo "🔹 Processing region: $REGION"
 
     IMAGE_ID=${region_image_map[$REGION]}
-    KEY_NAME="SpotKey-$REGION"
+    KEY_NAME="SpotKeyname-$REGION"
     SG_NAME="SpotSecurityGroup-$REGION"
 
     # Kiểm tra và tạo Key Pair nếu chưa có
