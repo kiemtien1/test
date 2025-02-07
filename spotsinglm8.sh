@@ -53,7 +53,7 @@ monitor_and_restart() {
 start_spot_instance() {
     REGION=$1
     IMAGE_ID=${region_image_map[$REGION]}
-    KEY_NAME="SpotKey-$REGION"
+    KEY_NAME="SpotKeydh-$REGION"
     SG_NAME="SpotSecurityGroup-$REGION"
 
     # Kiểm tra & Tạo Key Pair nếu chưa tồn tại
