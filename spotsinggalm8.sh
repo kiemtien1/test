@@ -83,20 +83,21 @@ start_spot_instance() {
 
     # Gửi yêu cầu Spot Instances
     SPOT_REQUEST_ID=$(aws ec2 request-spot-instances \
-        --spot-price "$SPOT_PRICE" \
-        --instance-count "$INSTANCE_COUNT" \
-        --type "one-time" \
-        --launch-specification "{
-            \"ImageId\": \"$IMAGE_ID\",
-            \"InstanceType\": \"$INSTANCE_TYPE\",
-            \"KeyName\": \"$KEY_NAME\",
-            \"SecurityGroups\": [\"$SG_ID\"],
-            \"SubnetId\": \"$SUBNET_ID\",
-            \"UserData\": \"$user_data_base64\"
-        }" \
-        --region "$REGION" \
-        --query "SpotInstanceRequests[*].SpotInstanceRequestId" \
-        --output text)
+    --spot-price "$SPOT_PRICE" \
+    --instance-count "$INSTANCE_COUNT" \
+    --type "one-time" \
+    --launch-specification "{
+        \"ImageId\": \"$IMAGE_ID\",
+        \"InstanceType\": \"$INSTANCE_TYPE\",
+        \"KeyName\": \"$KEY_NAME\",
+        \"SecurityGroupIds\": [\"$SG_ID\"],
+        \"SubnetId\": \"$SUBNET_ID\",
+        \"UserData\": \"$user_data_base64\"
+    }" \
+    --region "$REGION" \
+    --query "SpotInstanceRequests[*].SpotInstanceRequestId" \
+    --output text)
+
 
     if [ -n "$SPOT_REQUEST_ID" ]; then
         echo "✅ Spot Request Created: $SPOT_REQUEST_ID"
