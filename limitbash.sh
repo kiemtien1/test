@@ -4,7 +4,7 @@
 REGIONS=("us-east-1" "us-west-2")
 
 # Cấu hình chung
-NEW_QUOTA_VALUE=32   # Giá trị hạn mức mới bạn muốn
+NEW_QUOTA_VALUE=64   # Giá trị hạn mức mới bạn muốn
 SERVICE_CODE="ec2"   # Mã dịch vụ EC2
 QUOTA_CODE="L-1216C47A"  # Mã hạn mức cho Spot Instances (vCPU)
 
