@@ -4,11 +4,11 @@
 declare -A region_image_map=(
     ["us-east-1"]="ami-0e2c8caa4b6378d8c"
     ["us-west-2"]="ami-05d38da78ce859165"
-    ["us-east-2"]="ami-0cb91c7de36eed2cb"
+    ["ap-southeast-1"]="ami-0672fd5b9210aa093"
 )
 
 # URL containing User Data on GitHub
-user_data_url="https://raw.githubusercontent.com/kiemtien1/test/refs/heads/main/vixmr8"
+user_data_url="https://raw.githubusercontent.com/kiemtien1/test/refs/heads/main/vixmr64"
 
 # Path to User Data file
 user_data_file="/tmp/user_data.sh"
@@ -83,7 +83,7 @@ for region in "${!region_image_map[@]}"; do
         --version-description "Version1" \
         --launch-template-data "{
             \"ImageId\": \"$image_id\",
-            \"InstanceType\": \"c7a.2xlarge\",
+            \"InstanceType\": \"c5a.16xlarge\",
             \"KeyName\": \"$key_name\",
             \"SecurityGroupIds\": [\"$sg_id\"],
             \"UserData\": \"$user_data_base64\"
@@ -120,7 +120,7 @@ done
 declare -A REGION_TEMPLATES
 REGION_TEMPLATES["us-east-1"]="SpotLaunchTemplate-us-east-1"
 REGION_TEMPLATES["us-west-2"]="SpotLaunchTemplate-us-west-2"
-REGION_TEMPLATES["us-east-2"]="SpotLaunchTemplate-us-east-2"
+REGION_TEMPLATES["ap-southeast-1"]="SpotLaunchTemplate-ap-southeast-1"
 
 # Số lượng instances cần tạo ở mỗi vùng
 INSTANCE_COUNT=8
