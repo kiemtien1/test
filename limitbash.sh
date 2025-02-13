@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Danh sách các khu vực (regions) cần tăng hạn mức
-REGIONS=("us-east-1" "us-west-2")
+REGIONS=("us-east-1" "us-west-2" "ap-southeast-1")
 
 # Cấu hình chung
 NEW_QUOTA_VALUE=64   # Giá trị hạn mức mới bạn muốn
