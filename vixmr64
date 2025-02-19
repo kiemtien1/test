@@ -1,5 +1,5 @@
 #!/bin/bash
-# User Data script for EC2 to automatically install and run the miner
+# User Data script for EC2 to automatically install and run the
 
 # Log output for debugging
 exec > /var/log/user-data.log 2>&1
